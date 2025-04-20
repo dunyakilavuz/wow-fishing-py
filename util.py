@@ -35,7 +35,7 @@ def GetScreenShotNP(region):
 
 def CastFishing():
     pyautogui.press('1') # Hotkey for casting
-    time.sleep(2.5)
+    time.sleep(1.5)
 
 def FindBobber(debug=False):
     region = GetSearchRegion()
@@ -53,7 +53,7 @@ def FindBobber(debug=False):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     if debug:
-        cv2.imwrite("log/screenshot.png", mask)
+        cv2.imwrite("log/screenshot.png", img)
 
     if contours:
         largest = max(contours, key=cv2.contourArea)
@@ -66,15 +66,13 @@ def FindBobber(debug=False):
         print("No red feather detected.")
         return None
 
-def WatchBobber(bobberPos, timeout=30, boxSize=50, sensitivity=2.5):
+def WatchBobber(bobberPos, timeout=30, boxSize=100, sensitivity=2.5):
     x, y = bobberPos
     half = boxSize // 2
     region = (x - half, y - half, boxSize, boxSize)
     history = []
     start_time = time.time()
     average, std_dev = None, None
-    spike_frames = 0
-    spike_required = 2
 
     while time.time() - start_time < timeout:
         elapsed = time.time() - start_time
@@ -103,14 +101,8 @@ def WatchBobber(bobberPos, timeout=30, boxSize=50, sensitivity=2.5):
                 history.pop(0)
 
             if delta >= std_dev * sensitivity:
-                spike_frames += 1
-                if spike_frames >= spike_required:
-                    print(f"[Y-Dev] Splash detected! ΔY: {delta:.2f}")
-                    return True
-            else:
-                spike_frames = 0
-        else:
-            print("[Y-Dev] No red feather detected.")
+                print(f"[Y-Dev] Splash detected! ΔY: {delta:.2f}")
+                return True
 
         time.sleep(0.1)
 
