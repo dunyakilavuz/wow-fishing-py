@@ -37,6 +37,10 @@ def CastFishing():
     pyautogui.press('1') # Hotkey for casting
     time.sleep(1.5)
 
+def CastLure():
+    pyautogui.press('2')  # Hotkey for lure
+    time.sleep(7)
+
 def FindBobber(debug=False):
     region = GetSearchRegion()
     img = GetScreenShotNP(region)
