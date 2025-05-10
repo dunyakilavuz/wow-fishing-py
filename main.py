@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(description="WoW Classic Fishing Bot 🎣")
 parser.add_argument("--lure", type=float, default=0.0,
     help="Apply lure every X minutes (e.g., --lure 10). 0 = disabled")
 args = parser.parse_args()
-lure_interval_seconds = args.lure * 60 + 15 # 15 seconds buffer
+lure_interval_seconds = args.lure * 60
 lure_enabled = args.lure > 0
 
 args = parser.parse_args()
