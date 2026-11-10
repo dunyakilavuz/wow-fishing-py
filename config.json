@@ -1,0 +1,23 @@
+{
+  "gear_lock": 0.45,
+  "lock_score": 0.35,
+  "min_red": 8,
+  "bite_px": 20,
+  "bite_frames": 3,
+  "settle": 1.0,
+  "h_min": 35,
+  "h_max": 65,
+  "v_min": 30,
+  "v_max": 70,
+  "cast_anim": 1.0,
+  "loot_wait": 1.5,
+  "seek_seconds": 8.0,
+  "watch_seconds": 25.0,
+  "interval": 0.05,
+  "start_delay": 3.0,
+  "target": 100,
+  "jitter": 25,
+  "react_min": 0.2,
+  "react_max": 0.7,
+  "cast_key": "<"
+}

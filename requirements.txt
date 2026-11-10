@@ -1,0 +1,14 @@
+opencv-python
+numpy
+pillow
+
+# Windows
+mss; sys_platform == "win32"
+pyautogui; sys_platform == "win32" or sys_platform == "darwin"
+
+# macOS
+pyobjc-core; sys_platform == "darwin"
+pyobjc-framework-Quartz; sys_platform == "darwin"
+
+# Linux (screen capture; key presses use the ydotool program)
+pipewire-capture; sys_platform == "linux"
