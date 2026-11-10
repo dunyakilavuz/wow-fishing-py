@@ -1133,62 +1133,21 @@ class App(tk.Tk):
         if frame is None:
             messagebox.showerror("Error", "Could not grab a frame")
             return
-        self._select_region(frame, path, name)
 
-    def _select_region(self, bgr, path, name):
-        if Image is None:
-            messagebox.showerror("Pillow missing", "Install Pillow (pip install pillow) to grab templates.")
+        # OpenCV ROI selector — works correctly on Windows (DPI-safe), macOS and Linux
+        win_title = f"Select {name} — drag a box, Enter to confirm, Esc to cancel"
+        roi = cv2.selectROI(win_title, frame, showCrosshair=True, fromCenter=False)
+        cv2.destroyAllWindows()
+        x, y, w, h = (int(v) for v in roi)
+        if w < 10 or h < 10:
+            messagebox.showwarning("Too small", "Select a larger region")
             return
-
-        win = tk.Toplevel(self)
-        win.title(f"Drag a box around the {name} — Enter to save, Esc to cancel")
-        win.configure(bg=BG)
-
-        h, w = bgr.shape[:2]
-        scale = min(1.0, 960 / w, 640 / h)
-        small = cv2.resize(bgr, (int(w * scale), int(h * scale))) if scale < 1 else bgr
-        photo = ImageTk.PhotoImage(Image.fromarray(cv2.cvtColor(small, cv2.COLOR_BGR2RGB)))
-
-        canvas = tk.Canvas(win, width=small.shape[1], height=small.shape[0], cursor="cross",
-                           highlightthickness=0)
-        canvas.pack()
-        canvas.create_image(0, 0, anchor="nw", image=photo)
-        canvas.image = photo
-
-        state = {"rect": None, "start": (0, 0), "end": (0, 0)}
-
-        def on_press(e):
-            state["start"] = state["end"] = (e.x, e.y)
-            if state["rect"]:
-                canvas.delete(state["rect"])
-            state["rect"] = canvas.create_rectangle(e.x, e.y, e.x, e.y, outline="lime", width=2)
-
-        def on_drag(e):
-            state["end"] = (e.x, e.y)
-            canvas.coords(state["rect"], *state["start"], e.x, e.y)
-
-        def on_confirm(_=None):
-            (sx, sy), (ex, ey) = state["start"], state["end"]
-            x1, x2 = sorted((sx, ex))
-            y1, y2 = sorted((sy, ey))
-            if x2 - x1 < 10 or y2 - y1 < 10:
-                messagebox.showwarning("Too small", "Select a larger region", parent=win)
-                return
-            crop = bgr[int(y1 / scale):int(y2 / scale), int(x1 / scale):int(x2 / scale)]
-            if crop.size == 0:
-                return
-            cv2.imwrite(str(path), crop)
-            self.refresh_thumbs()
-            messagebox.showinfo("Saved", f"{name} template saved ({crop.shape[1]}x{crop.shape[0]})", parent=win)
-            win.destroy()
-
-        canvas.bind("<ButtonPress-1>", on_press)
-        canvas.bind("<B1-Motion>", on_drag)
-        win.bind("<Return>", on_confirm)
-        win.bind("<Escape>", lambda _e: win.destroy())
-        ttk.Button(win, text="Save region (Enter)", command=on_confirm).pack(pady=6)
-        win.transient(self)
-        win.grab_set()
+        crop = frame[y:y + h, x:x + w]
+        if crop.size == 0:
+            return
+        cv2.imwrite(str(path), crop)
+        self.refresh_thumbs()
+        messagebox.showinfo("Saved", f"{name} template saved ({crop.shape[1]}x{crop.shape[0]})")
 
     def _on_close(self):
         self.save_config()
