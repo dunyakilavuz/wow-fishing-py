@@ -522,7 +522,7 @@ class FishingBot:
             return
         self._recast(P)
 
-        while self.running and self.caught < P["target"]:
+        while self.running: # and self.caught < P["target"]:
             frame = self.source.grab() if self.source else None
             if frame is None:
                 time.sleep(0.03)
