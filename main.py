@@ -1114,6 +1114,94 @@ class App(tk.Tk):
 
     # ----- template grabbing
 
+    def _select_roi_tk(self, frame, title):
+        """Tkinter-based ROI selector for Linux (avoids OpenCV highgui/Qt/Wayland issues).
+        Returns (x, y, w, h) in original frame coordinates, or (0, 0, 0, 0) on cancel.
+        """
+        if Image is None:
+            messagebox.showerror("Missing dependency", "Pillow is required for template grabbing on Linux.")
+            return (0, 0, 0, 0)
+
+        H, W = frame.shape[:2]
+        # Scale down large frames so the window fits on screen
+        max_w, max_h = 1200, 800
+        scale = min(1.0, max_w / W, max_h / H)
+        disp_w, disp_h = int(W * scale), int(H * scale)
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pil = Image.fromarray(rgb)
+        if scale < 1.0:
+            pil = pil.resize((disp_w, disp_h), Image.Resampling.LANCZOS)
+        photo = ImageTk.PhotoImage(pil)
+
+        win = tk.Toplevel(self)
+        win.title(title)
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(self)
+        win.grab_set()
+
+        ttk.Label(win, text="Drag a box around the object. Enter/Return to confirm, Esc to cancel.",
+                  style="Muted.TLabel", padding=(10, 6)).pack()
+
+        canvas = tk.Canvas(win, width=disp_w, height=disp_h, bg="black", highlightthickness=0, cursor="cross")
+        canvas.pack(padx=10, pady=(0, 10))
+        canvas.create_image(0, 0, anchor="nw", image=photo)
+        canvas.image = photo  # keep reference
+
+        state = {"start": None, "rect": None, "roi": None}
+
+        def to_orig(dx, dy):
+            return int(dx / scale), int(dy / scale)
+
+        def on_press(e):
+            state["start"] = (e.x, e.y)
+            if state["rect"]:
+                canvas.delete(state["rect"])
+            state["rect"] = canvas.create_rectangle(e.x, e.y, e.x, e.y, outline="#00ff88", width=2)
+
+        def on_drag(e):
+            if state["start"] is None:
+                return
+            x0, y0 = state["start"]
+            canvas.coords(state["rect"], x0, y0, e.x, e.y)
+
+        def on_release(e):
+            if state["start"] is None:
+                return
+            x0, y0 = state["start"]
+            x1, y1 = e.x, e.y
+            ox0, oy0 = to_orig(min(x0, x1), min(y0, y1))
+            ox1, oy1 = to_orig(max(x0, x1), max(y0, y1))
+            state["roi"] = (ox0, oy0, max(0, ox1 - ox0), max(0, oy1 - oy0))
+
+        def confirm(_=None):
+            if state["roi"] is None or state["roi"][2] < 10 or state["roi"][3] < 10:
+                messagebox.showwarning("Too small", "Select a larger region", parent=win)
+                return
+            win.destroy()
+
+        def cancel(_=None):
+            state["roi"] = (0, 0, 0, 0)
+            win.destroy()
+
+        canvas.bind("<ButtonPress-1>", on_press)
+        canvas.bind("<B1-Motion>", on_drag)
+        canvas.bind("<ButtonRelease-1>", on_release)
+        win.bind("<Return>", confirm)
+        win.bind("<Escape>", cancel)
+        win.protocol("WM_DELETE_WINDOW", cancel)
+
+        # Center the window
+        win.update_idletasks()
+        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+        ww, wh = win.winfo_width(), win.winfo_height()
+        win.geometry(f"+{(sw - ww) // 2}+{(sh - wh) // 2}")
+        win.focus_force()
+        win.wait_window()
+
+        return state["roi"] or (0, 0, 0, 0)
+
     def grab_template(self, path, name):
         if self.bot.running:
             messagebox.showinfo("Busy", "Stop the bot first to grab a new template.")
@@ -1134,10 +1222,16 @@ class App(tk.Tk):
             messagebox.showerror("Error", "Could not grab a frame")
             return
 
-        # OpenCV ROI selector — works correctly on Windows (DPI-safe), macOS and Linux
-        win_title = f"Select {name} — drag a box, Enter to confirm, Esc to cancel"
-        roi = cv2.selectROI(win_title, frame, showCrosshair=True, fromCenter=False)
-        cv2.destroyAllWindows()
+        if IS_WIN or IS_MAC:
+            # OpenCV ROI selector — works correctly on Windows (DPI-safe) and macOS
+            win_title = f"Select {name} — drag a box, Enter to confirm, Esc to cancel"
+            roi = cv2.selectROI(win_title, frame, showCrosshair=True, fromCenter=False)
+            cv2.destroyAllWindows()
+        else:
+            # Linux: use Tkinter selector to avoid OpenCV Qt/Wayland highgui failures
+            win_title = f"Select {name} — drag a box, Enter to confirm, Esc to cancel"
+            roi = self._select_roi_tk(frame, win_title)
+
         x, y, w, h = (int(v) for v in roi)
         if w < 10 or h < 10:
             messagebox.showwarning("Too small", "Select a larger region")
